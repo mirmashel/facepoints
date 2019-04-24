@@ -1,32 +1,45 @@
+import numpy as np
 import cv2
 import keras
 import detection
-import numpy as np
+import skimage
 
-cv2.namedWindow("preview")
-vc = cv2.VideoCapture(0)
+faceCascade = cv2.CascadeClassifier('/home/maxim/anaconda3/share/opencv4/haarcascades/haarcascade_frontalface_default.xml')
+autocoder = keras.models.load_model("/home/maxim/proga/python/face/facepoints_model.hdf5")
 
-if vc.isOpened(): # try to get the first frame
-    rval, frame = vc.read()
-else:
-    rval = False
-
-# autocoder = keras.models.load_model("/home/maxim/proga/python/face2.0/models/model1/9_91.hdf5")
-autocoder = keras.models.load_model("/home/maxim/proga/python/face2.0/facepoints_model.hdf5")
-
-while rval:
-    coords = detection.detect1(autocoder, frame)
+cap = cv2.VideoCapture(0)
+cap.set(3, 1080) # set Width
+cap.set(4, 960) # set Height
 
 
-    for c in coords:
-        for x in range(-3, 3):
-            for y in range(-3, 3):
-                frame[c[0] + y, c[1] + x] = [0, 0, 255]
-    cv2.imshow("preview", frame)
-    rval, frame = vc.read()
-    key = cv2.waitKey(20)
-    if key == 27: # exit on ESC
+while True:
+    ret, img = cap.read()
+    # img = cv2.flip(img, -1)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    faces = faceCascade.detectMultiScale(
+        gray,     
+        scaleFactor=1.2,
+        minNeighbors=5,     
+        minSize=(20, 20)
+    )
+
+    for (x,y,w,h) in faces:
+        coords = detection.detect1(autocoder, img[y:y+h, x:x+h])
+        for c in coords:
+            for x1 in range(-3, 3):
+                for y1 in range(-3, 3):
+                    img[y + c[0] + y1, x + c[1] + x1] = [0, 0, 255]
+
+        cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2) 
+        roi_gray = gray[y: y + h, x: x + w]
+        roi_color = img[y: y + h, x: x + w]  
+
+    # large = skimage.transform.resize(img, (960, 1080))
+    cv2.imshow('video',img)
+
+    k = cv2.waitKey(30) & 0xff
+    if k == 27: # press 'ESC' to quit
         break
 
-cv2.destroyWindow("preview")
-vc.release()
+cap.release()
+cv2.destroyAllWindows()
